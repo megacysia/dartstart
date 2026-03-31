@@ -1,45 +1,73 @@
+import 'dart:io';
+import 'package:http/http.dart' as http; // Add this line
 import 'dart:io'; // Add this line at the top
 
 const version = '0.0.1';
+
+// ... (existing const version declaration and printUsage function)
 
 void main(List<String> arguments) {
   if (arguments.isEmpty || arguments.first == 'help') {
     printUsage();
   } else if (arguments.first == 'version') {
     print('Dartpedia CLI version $version');
-  } else if (arguments.first == 'search') {
-    // Add this new block:
+  } else if (arguments.first == 'wikipedia') { // Changed to 'wikipedia'
+    // Pass all arguments *after* 'wikipedia' to searchWikipedia
     final inputArgs = arguments.length > 1 ? arguments.sublist(1) : null;
-    searchWikipedia(inputArgs);
+    searchWikipedia(inputArgs); // Call searchWikipedia (no 'await' needed here for main)
   } else {
-    printUsage();
+    printUsage(); // Catch all for any unrecognized command.
   }
 }
+
 
 // ... (your existing main function)
 
-void searchWikipedia(List<String>? arguments) {
-  final String articleTitle;
+// ... (beginning of searchWikipedia function, after determining articleTitle)
 
-  // If the user didn't pass in arguments, request an article title.
+void searchWikipedia(List<String>? arguments) async {
+  final String articleTitle;
   if (arguments == null || arguments.isEmpty) {
     print('Please provide an article title.');
-    // Await input and provide a default empty string if the input is null.
-    articleTitle = stdin.readLineSync() ?? '';
+    final inputFromStdin = stdin.readLineSync();
+    if (inputFromStdin == null || inputFromStdin.isEmpty) {
+      print('No article title provided. Exiting.');
+      return;
+    }
+    articleTitle = inputFromStdin;
   } else {
-    // Otherwise, join the arguments into a single string.
     articleTitle = arguments.join(' ');
   }
 
-  print('Current article title: $articleTitle');
+  print('Looking up articles about "$articleTitle". Please wait.');
+
+  // Call the API and await the result
+  var articleContent = await getWikipediaArticle(articleTitle);
+  print(articleContent); // Print the full article response (raw JSON for now)
 }
 
 
-// ... (your existing printUsage() function)
 
 
 void printUsage() { // Add this new function
   print(
     "The following commands are valid: 'help', 'version', 'search <ARTICLE-TITLE>'"
   );
+}
+
+// ... (your existing printUsage() function)
+
+Future<String> getWikipediaArticle(String articleTitle) async {
+  final url = Uri.https(
+    'en.wikipedia.org',
+    '/api/rest_v1/page/summary/$articleTitle',
+  );
+  final response = await http.get(url); // Make the HTTP request
+
+  if (response.statusCode == 200) {
+    return response.body; // Return the response body if successful
+  }
+
+  // Return an error message if the request failed
+  return 'Error: Failed to fetch article "$articleTitle". Status code: ${response.statusCode}';
 }
